@@ -1,0 +1,129 @@
+from datetime import datetime, timedelta
+from collections import defaultdict
+
+def input_error(func):
+    def inner(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except ValueError:
+            return "Invalid input format."
+        except KeyError:
+            return "Contact not found."
+        except IndexError:
+            return "Invalid command format."
+
+    return inner
+
+class Birthday:
+    def _init_(self, birthday):
+        self.birthday = birthday
+
+    @classmethod
+    def from_string(cls, birthday_str):
+        try:
+            day, month, year = map(int, birthday_str.split('.'))
+            birthday = datetime(year, month, day)
+            return cls(birthday)
+        except ValueError:
+            raise ValueError("Invalid date format.")
+
+class Record:
+    def _init_(self, name, phone, birthday=None):
+        self.name = name
+        self.phone = phone
+        self.birthday = birthday
+
+    def add_birthday(self, birthday):
+        self.birthday = birthday
+
+class AddressBook:
+    def _init_(self):
+        self.contacts = {}
+
+    def add_contact(self, name, phone):
+        if len(phone) != 10 or not phone.isdigit():
+            return "Phone must contain 10 digits."
+        self.contacts[name] = Record(name, phone)
+        return "Contact added."
+
+    def change_phone(self, name, new_phone):
+        if len(new_phone) != 10 or not new_phone.isdigit():
+            return "New phone must contain 10 digits."
+        self.contacts[name].phone = new_phone
+        return "Phone number changed."
+
+    def add_birthday(self, name, birthday_str):
+        if name not in self.contacts:
+            return "Contact not found."
+        try:
+            birthday = Birthday.from_string(birthday_str)
+            self.contacts[name].add_birthday(birthday)
+            return "Birthday added."
+        except ValueError as e:
+            return str(e)
+
+    def show_birthday(self, name):
+        if name not in self.contacts:
+            return "Contact not found."
+        if not self.contacts[name].birthday:
+            return "Birthday not set."
+        return self.contacts[name].birthday.birthday.strftime("%d.%m.%Y")
+
+    def get_birthdays_per_week(self):
+        birthdays = defaultdict(list)
+        today = datetime.today()
+        next_week = today + timedelta(days=7)
+        for contact in self.contacts.values():
+            if contact.birthday:
+                contact_birthday = contact.birthday.birthday
+                if today <= contact_birthday < next_week:
+                    weekday = contact_birthday.strftime("%A")
+                    birthdays[weekday].append(contact.name)
+        return birthdays
+
+    def list_contacts(self):
+        if not self.contacts:
+            return "No contacts found."
+        return "\n".join(f"{name}: {record.phone}" for name, record in self.contacts.items())
+
+@input_error
+def handle_command(book, command):
+    parts = command.split()
+    if parts[0] == "add":
+        return book.add_contact(parts[1], parts[2])
+    elif parts[0] == "change":
+        return book.change_phone(parts[1], parts[2])
+    elif parts[0] == "phone":
+        return book.contacts[parts[1]].phone
+    elif parts[0] == "all":
+        return book.list_contacts()
+    elif parts[0] == "add-birthday":
+        return book.add_birthday(parts[1], parts[2])
+    elif parts[0] == "show-birthday":
+        return book.show_birthday(parts[1])
+    elif parts[0] == "birthdays":
+        birthdays = book.get_birthdays_per_week()
+        if not birthdays:
+            return "No birthdays in the next week."
+        result = ""
+        for day, contacts in birthdays.items():
+            result += f"On {day}, congratulate: {', '.join(contacts)}\n"
+        return result.strip()
+    elif parts[0] == "hello":
+        return "Hello!"
+    elif parts[0] in ["close", "exit"]:
+        return "Closing the app."
+    else:
+        return "Invalid command."
+
+def main():
+    book = AddressBook()
+    while True:
+        user_input = input("Input: ")
+        if user_input.lower() in ["close", "exit"]:
+            print(handle_command(book, user_input))
+            break
+        print(handle_command(book, user_input))
+
+if _name_ == "_main_":
+    main()
